@@ -1,0 +1,5 @@
+/home/llvm-whitelist-pass/build/CMakeFiles/edit_cache.dir
+/home/llvm-whitelist-pass/build/CMakeFiles/rebuild_cache.dir
+/home/llvm-whitelist-pass/build/whitelist/CMakeFiles/rebuild_cache.dir
+/home/llvm-whitelist-pass/build/whitelist/CMakeFiles/edit_cache.dir
+/home/llvm-whitelist-pass/build/whitelist/CMakeFiles/WhiteListPass.dir

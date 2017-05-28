@@ -3,17 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-int hash_backtrace() {
+void hash_backtrace(int expected_hash) {
    void* buffer[256];
    int backtrace_length = backtrace(buffer, 256);
    if(backtrace_length == 0) {
       fprintf(stderr, "Empty stack trace, possibly corrupted stack\n");
       exit(1);
-   } else {
-      printf("Length is %d\n", backtrace_length);	
    }
    char** symbols_buffer = backtrace_symbols(buffer, backtrace_length);
- 
    unsigned hash = 0;
    for(unsigned i = 1; i < backtrace_length; i++) {
       char* bname = 0;
@@ -28,7 +25,6 @@ int hash_backtrace() {
       }
       *bname++ = '\0';
       *boffset++ = '\0';
-      printf("%s\n", bname);
       if(bname[0] != '_') {
          for(unsigned i = 0; bname[i]; i++) {
             hash += bname[i];
@@ -36,8 +32,13 @@ int hash_backtrace() {
       }	   
    }  
    printf("Hash of this trace: %d.\n", hash); 
+   if(hash != expected_hash) {
+      fprintf(stderr, "Trace is corrupted.\n");
+      exit(1);
+   } else {
+      fprintf(stderr, "Trace is OK.\n");
+   }
    free(symbols_buffer);
 
-return hash;
 }
 

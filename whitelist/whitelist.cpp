@@ -1,3 +1,5 @@
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/CallGraph.h"
@@ -5,8 +7,8 @@
 #include "llvm/PassAnalysisSupport.h"
 #include "llvm/Support/CommandLine.h"
 #include <typeinfo>
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+/*#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"*/
 
 
 using namespace llvm;
@@ -35,24 +37,43 @@ namespace {
 	 AU.setPreservesAll();
       }
 
-      bool runOnModule(Module &M) override {
-        
-	AnalysisUsage analysis;
-	getAnalysisUsage(analysis);
+      void insertFunc(Module& M, string sens_func, vector<string> whitelist) {
+         StringRef name(sens_func);
+         Function* f = M.getFunction(name);
+         if(f != nullptr) {
+            LLVMContext& ctx = (*f).getContext();
+            unsigned hash = 0;
+           // for(vector<string> whitelist: whitelists) {
+            hash = calculate_hash(whitelist);	       
+            Constant* calc_hash_func = (*((*f).getParent())).getOrInsertFunction("hash_backtrace", Type::getVoidTy(ctx), Type::getInt32Ty(ctx), NULL);
+            IRBuilder<> builder(ctx);
+            Instruction* i = (*f).getEntryBlock().getFirstNonPHI();   
+            builder.SetInsertPoint(i);
+            Constant* arg = ConstantInt::get(Type::getInt32Ty(ctx), hash);
+            Value* args[] = {arg}; 
+            builder.CreateCall(calc_hash_func, args);
+           // }
+         } else {
+            fprintf(stderr, "Specified function not found in this module.\n");
+         }
+      }
 
-	 for(string f: Param) {
-	    errs() << "Sensitive function: " << f << '\n';	
-	 }
-  	 CallGraphWrapperPass* pass = getAnalysisIfAvailable<CallGraphWrapperPass>();
-	 const CallGraph& graph = (*pass).getCallGraph();
-	 for(const pair<const llvm::Function* const, unique_ptr<llvm::CallGraphNode>>& node: graph) {
-	    errs() << "Printing call graph" << '\n';
-	    if(node.first == NULL) {
-	       errs() << "Function pointer NULL" << '\n';
-	    } else {
-	       //(*(node.first)).dump();
-	    }
-	       (*(node.second)).dump(); 
+      bool runOnModule(Module &M) override {
+         AnalysisUsage analysis;
+	 getAnalysisUsage(analysis);
+	 for(string sens_func: Param) {
+	    errs() << "Sensitive function: " << sens_func << '\n';	
+	 
+  	    CallGraphWrapperPass* pass = getAnalysisIfAvailable<CallGraphWrapperPass>();
+	    const CallGraph& graph = (*pass).getCallGraph();
+	    for(const pair<const llvm::Function* const, unique_ptr<llvm::CallGraphNode>>& node: graph) {
+	       errs() << "Printing call graph" << '\n';
+	       if(node.first == NULL) {
+	          errs() << "Function pointer NULL" << '\n';
+	       } else {
+	          //(*(node.first)).dump();
+	       }
+	          (*(node.second)).dump(); 
 	    }
 		 /*for(const pair<const Function* const, unique_ptr<CallGraphNode>>& node: graph) {
 			if(node.first != nullptr) {
@@ -71,34 +92,34 @@ namespace {
 		 
 		}*/
 		 
-          vector<vector<string>> whitelists;
+             //vector<vector<string>> whitelists;
 		
-          vector<string> whitelist1;
-     	  whitelist1.push_back("operation2");
-	  whitelist1.push_back("encrypt");
-	  whitelist1.push_back("readKey");
-          whitelists.push_back(whitelist1);
+             vector<string> whitelist1;
+     	     whitelist1.push_back("operation2");
+	     whitelist1.push_back("encrypt");
+	     whitelist1.push_back("readKey");
+             whitelist1.push_back("main");
+             //whitelists.push_back(whitelist1);
 		
-	  vector<string> whitelist2;
-	  whitelist2.push_back("operation2");
-	  whitelist2.push_back("decrypt");
-	  whitelist2.push_back("readKey");
-	  whitelists.push_back(whitelist2);
+	     /*vector<string> whitelist2;
+	     whitelist2.push_back("operation2");
+	     whitelist2.push_back("decrypt");
+	     whitelist2.push_back("readKey");
+	     whitelist2.push_back("main");
+	     whitelists.push_back(whitelist2);*/
 
-	  for(vector<string> whitelist: whitelists) {
-	     unsigned hash = calculate_hash(whitelist);
-	  }
-      return false;
+             insertFunc(M, sens_func, whitelist1);
+         }
+      return true;
       }
    };
 }
-
 
 	char WhiteListPass::ID = 0;
 
 	static RegisterPass<WhiteListPass> X("whitelist", "White List Pass", false, false);
 
-	static void registerWhiteListPass(const PassManagerBuilder &,
+	/*static void registerWhiteListPass(const PassManagerBuilder &,
 				 legacy::PassManagerBase &PM) {
 	  PM.add(new WhiteListPass());
 
@@ -106,4 +127,4 @@ namespace {
 	static RegisterStandardPasses
 	  RegisterMyPass(PassManagerBuilder::EP_EarlyAsPossible,
 			 registerWhiteListPass);
-	
+	*/

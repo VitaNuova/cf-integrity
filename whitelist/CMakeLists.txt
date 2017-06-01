@@ -12,4 +12,4 @@ set_target_properties(WhiteListPass PROPERTIES
     COMPILE_FLAGS "-fno-rtti"
 )
 
-
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")

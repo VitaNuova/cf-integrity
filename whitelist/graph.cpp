@@ -28,19 +28,13 @@ public:
 	Graph();
 	Graph(string name);
 	void print();
-	// void fromLLVMCallGraph(string root_name, const CallGraph& graph, std::unordered_set<string> seen);
+	void printBFS();
 	void fromLLVMCallGraph(string root_name, const CallGraph& graph);
-	// const pair<const Function* const, unique_ptr<CallGraphNode>>& findinLLVMGraph(string name, const CallGraph&);
-	// void insert();
-	// - std::map<string, GraphNode*> funcs;
 	std::map<string, std::unordered_set<string>>* funcs;
 	std::map<string, GraphNode*>* funcNodes;
 };
 
 Graph::Graph(){
-	// - std::map<string, GraphNode*>* funcMap = new map<string, GraphNode*>(); //  = new map<string, GraphNode>()
-	// std::map<string, GraphNode*> &funcs = *funcMap;
-	// - funcs = *funcMap;
 	funcs = new map<string, std::unordered_set<string>>;
 	funcNodes = new map<string, GraphNode*>;
 }
@@ -48,18 +42,14 @@ Graph::Graph(){
 Graph::Graph(string name){
 	GraphNode rn = GraphNode(name);
 	root = &rn;
-	// - std::map<string, GraphNode*>* funcMap = new map<string, GraphNode*>(); //  = new map<string, GraphNode>()
-	// std::map<string, GraphNode*> &funcs = *funcMap;
-	// - funcs = *funcMap;
 	funcs = new map<string, std::unordered_set<string>>;
 	funcNodes = new map<string, GraphNode*>;
 }
 
 void Graph::print(){
 	errs() << "Graph root: " << root->name << '\n';
+	printBFS();
 }
-
-
 
 void Graph::fromLLVMCallGraph(string root_name, const CallGraph& graph){	
 	string fname;	
@@ -85,15 +75,12 @@ void Graph::fromLLVMCallGraph(string root_name, const CallGraph& graph){
 					
 					if(funcNodes->count(calleename) == 0){
 						// Add my child to the map if it isn't in it already
-						// errs() << "Adding cNode to map: " << calleename << '\n';
 						childNode = new GraphNode(calleename);
 					} else {
 						// Retrieve the child from the map
-						// errs() << "Get cNode from map: " << calleename << '\n';
 						childNode = funcNodes->at(calleename);
 					}	
 					
-					// childNode->print();
 					childNodes.insert(childNode);
 					// 				
 				}
@@ -102,11 +89,9 @@ void Graph::fromLLVMCallGraph(string root_name, const CallGraph& graph){
 			GraphNode* parentNode;
 			// If I don't exist in the map, add me			
 			if(funcs->count(fname) == 0){
-				// errs() << "Adding pNode to map: " << fname << '\n';
 				parentNode = new GraphNode(fname);
 			} else {
 				// Use the existing node from the map, merge the children
-				// errs() << "Get pNode from map: " << fname << '\n';
 				parentNode = funcNodes->at(fname);				
 			}
 			
@@ -132,14 +117,33 @@ void Graph::fromLLVMCallGraph(string root_name, const CallGraph& graph){
 	// If it exists, 	
 }
 
-
-
-
-
-
-
-
-
+void Graph::printBFS(){
+	// List of seen nodes
+	std::unordered_set<string> seen;
+	
+	// Queue to store nodes to explore
+	std::queue<GraphNode*> q;
+	
+	// Start at root
+	q.push(root);
+	
+	// Go!
+	while(!q.empty()){
+		GraphNode* current = q.front();
+		q.pop();
+		
+		errs() << "Current node: " << current->name << '\n';
+		
+		seen.insert(current->name);
+		// What order should adding to 'seen' and adding children be?
+		
+		for(GraphNode* child:current->children){
+			if(seen.count(child->name) == 0){
+				q.push(child);
+			}			
+		}		
+	}
+}
 
 
 

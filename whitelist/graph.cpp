@@ -15,11 +15,12 @@ public:
 		// vector<GraphNode*> children;
 		std::unordered_set<GraphNode*> children;
 		std::unordered_set<GraphNode*> callers;
-		// vector<GraphNode*> callers;
 		GraphNode();
 		GraphNode(string name);
 		void addChild(string child_name);
 		void addChild(GraphNode* new_child);
+		void mergeChildren(std::unordered_set<GraphNode*> new_children);
+		void print();
 		void printChildren();
 	};
 	
@@ -33,14 +34,26 @@ public:
 	void fromLLVMCallGraph(string root_name, const CallGraph& graph);
 	// const pair<const Function* const, unique_ptr<CallGraphNode>>& findinLLVMGraph(string name, const CallGraph&);
 	// void insert();
+	// - std::map<string, GraphNode*> funcs;
+	std::map<string, std::unordered_set<string>>* funcs;
+	std::map<string, GraphNode*>* funcNodes;
 };
 
 Graph::Graph(){
-	
+	// - std::map<string, GraphNode*>* funcMap = new map<string, GraphNode*>(); //  = new map<string, GraphNode>()
+	// std::map<string, GraphNode*> &funcs = *funcMap;
+	// - funcs = *funcMap;
+	funcs = new map<string, std::unordered_set<string>>;
+	funcNodes = new map<string, GraphNode*>;
 }
 
 Graph::Graph(string name){
 	root = GraphNode(name);
+	// - std::map<string, GraphNode*>* funcMap = new map<string, GraphNode*>(); //  = new map<string, GraphNode>()
+	// std::map<string, GraphNode*> &funcs = *funcMap;
+	// - funcs = *funcMap;
+	funcs = new map<string, std::unordered_set<string>>;
+	funcNodes = new map<string, GraphNode*>;
 }
 
 void Graph::print(){
@@ -49,92 +62,100 @@ void Graph::print(){
 
 
 
-void Graph::fromLLVMCallGraph(string root_name, const CallGraph& graph){
-	std::map<string, GraphNode*> funcs;
+void Graph::fromLLVMCallGraph(string root_name, const CallGraph& graph){	
+	string fname;	
 	
 	// Loop over the graph
 	for(const pair<const Function* const, unique_ptr<CallGraphNode>>& node: graph) {
-		string fname;
 		if(node.first != nullptr) {
 			fname = (*(node.first)).getName();
 			
-			GraphNode* gn;
-			// If I don't exist in the map, add me
-			if(funcs.count(fname) == 0){
-				// errs() << "Adding to map: " << fname << '\n';
-				GraphNode gno = GraphNode(fname);
-				gn = &gno;
-				errs() << "Adding to map: " << gn->name << '\n';
-				funcs[fname] = gn;
-			} else {
-				// Use the existing node from the map
-				errs() << "Get from map: " << fname << '\n';
-				gn = funcs[fname];
-			}
-			
+			// Build the list of children for this node, if it has any
+			std::unordered_set<string> children;		
+			std::unordered_set<GraphNode*> childNodes;			
 			if(node.second != nullptr) {
 				string calleename;
 
-				// Iterate over each function that this node calls
+				// Iterate over each function that this node calls				
 				for (auto callee: (*(node.second))){
 					Function* callee_func = callee.second->getFunction();
-					calleename = callee_func->getName();
+					calleename = callee_func->getName();				
 					
-					GraphNode* cgn;
-					if(funcs.count(calleename) == 0){
+					errs() << "Callee name: " << calleename << '\n';
+					
+					GraphNode* childNode;
+					
+					if(funcNodes->count(calleename) == 0){
 						// Add my child to the map if it isn't in it already
-						errs() << "Adding child to map: " << calleename << '\n';
-						GraphNode cgno = GraphNode(calleename);
-						cgn = &cgno;
-						funcs[calleename] = cgn;
+						errs() << "Adding cNode to map: " << calleename << '\n';
+						childNode = new GraphNode(calleename);
 					} else {
 						// Retrieve the child from the map
-						errs() << "Get child from map: " << calleename << '\n';
-						cgn = funcs[calleename];
+						errs() << "Get cNode from map: " << calleename << '\n';
+						childNode = funcNodes->at(calleename);
 					}	
 					
-					gn->printChildren();
+					childNode->print();
 					
-					// Add this child to my children
-					// gn->children.insert(cgn);	
-					gn->addChild(cgn);  // Adding the children is acting funny.
+					/*
+					if(funcs->count(calleename) == 0){
+						// Add my child to the map if it isn't in it already
+						errs() << "Adding cString to map: " << calleename << '\n';
+						
+					} else {
+						// Retrieve the child from the map
+						errs() << "Get cString from map: " << calleename << '\n';
+					}	*/
 					
-					gn->printChildren();
-					
-					//for(auto child: gn->children){
-					//	errs() << "p2Child: " << child->name << '\n';
-					//}
-					
-					// Add me to my child's callers
-					// cgn->callers.insert(gn);
+					children.insert(calleename);
+					childNodes.insert(childNode);
+					// 				
 				}
-				
-				for(auto child: gn->children){
-					errs() << "Child: " << child->name << '\n';
-				}
+			} // Otherwise null .second
+			
+			GraphNode* parentNode;
+			// If I don't exist in the map, add me			
+			if(funcs->count(fname) == 0){
+				errs() << "Adding pNode to map: " << fname << '\n';
+				parentNode = new GraphNode(fname);
 			} else {
-				// could be non-null and still have no children. Can check this above
-				errs() << "node has no children" << '\n';
+				// Use the existing node from the map, merge the children
+				errs() << "Get pNode from map: " << fname << '\n';
+				parentNode = funcNodes->at(fname);				
 			}
+			
+			/*
+			if(funcs->count(fname) == 0){
+				errs() << "Adding to map: " << fname << '\n';
+			} else {
+				// Use the existing node from the map
+				errs() << "Get from map: " << fname << '\n';
+			}*/		
+			
+			// Merge children
+			parentNode->mergeChildren(childNodes);
+			funcNodes->insert(pair<string, GraphNode*>(fname, parentNode));
+			
+			//funcs->insert(pair<string, std::unordered_set<string>>(fname, children));			
 
 		} else {
 			// Don't deal with null nodes for now
+		}		
+		errs() << '\n';
+	}
+	
+	for(auto f: *funcs){
+		errs() << "Func: " << f.first << '\n';
+		for(auto c: f.second){
+			errs() << "  - child: " << c << '\n';
 		}
+		
 	}
 
 	// Add every function to the map:
 	// Create a GNode for it, with its children
 	// For each child, add IT to the map
-	// If it exists, 
-	
-	for(auto f: funcs){
-		errs() << "Func: " << f.first << '\n';
-		for(auto c: f.second->children){
-			errs() << c->name << '\n';
-		}
-		
-	}
-	
+	// If it exists, 	
 }
 
 
@@ -165,14 +186,28 @@ void Graph::GraphNode::addChild(string child_name){
 }
 
 void Graph::GraphNode::addChild(GraphNode* new_child){
+	errs() << " + Adding child " << new_child->name << " to " << this->name << '\n';
 	children.insert(new_child);
+}
+
+void Graph::GraphNode::mergeChildren(std::unordered_set<GraphNode*> new_children){
+	children.insert(new_children.begin(), new_children.end());
 }
 
 void Graph::GraphNode::printChildren(){	
 	errs() << "Children of " << name << ":" << '\n';
 	for(auto child:this->children){
-		errs() << "Child - Name: " << child->name << '\n';
+		errs() << "   - Child: " << child->name << '\n';
 	}	
+}
+
+void Graph::GraphNode::print(){
+	errs() << "GraphNode: " << name << ":" << '\n';
+	if (this->children.size() > 0){
+		this->printChildren();
+	} else {
+		errs() << name << " has no children. " << '\n';
+	}
 }
 
 
@@ -362,6 +397,121 @@ void Graph::fromLLVMCallGraph(string root_name, const CallGraph& graph){
 	}	
 }
 
+
+
+
+// Almost working. Bug where cgn = gn for some reason. Scoping? pointers? wtf
+void Graph::fromLLVMCallGraph(string root_name, const CallGraph& graph){
+	//std::map<string, GraphNode*>* funcMap = new map<string, GraphNode*>(); //  = new map<string, GraphNode>()
+	// std::map<string, GraphNode*> &funcs = *funcMap;
+	//&funcs = *funcMap;
+	
+	string fname;
+	
+	GraphNode gno;
+	GraphNode* gn;
+	
+	// GraphNode cgno;
+	GraphNode* cgno;
+	// GraphNode cgno = new GraphNode();
+	GraphNode* cgn;
+	
+	
+	// Loop over the graph
+	for(const pair<const Function* const, unique_ptr<CallGraphNode>>& node: graph) {
+		// string fname;
+		if(node.first != nullptr) {
+			fname = (*(node.first)).getName();
+			
+			// GraphNode* gn;
+			// If I don't exist in the map, add me
+			if(funcs.count(fname) == 0){
+				// GraphNode gno = GraphNode(fname);
+				gno = GraphNode(fname);
+				gn = &gno;
+				errs() << "Adding to map: " << gn->name << '\n';
+				funcs[fname] = gn;
+				
+				// gno.print(); // As expected
+				// funcs[fname]->print(); // As expected
+			} else {
+				// Use the existing node from the map
+				errs() << "Get from map: " << fname << '\n';
+				gn = funcs[fname];
+			}				
+			
+			// funcs[fname]->print();
+			
+			if(node.second != nullptr) {
+				string calleename;
+
+				// Iterate over each function that this node calls
+				for (auto callee: (*(node.second))){
+					Function* callee_func = callee.second->getFunction();
+					calleename = callee_func->getName();
+					
+					funcs[fname]->print();
+					
+					errs() << "Callee name: " << calleename << '\n';
+					
+					// GraphNode* cgn;
+					if(funcs.count(calleename) == 0){
+						// Add my child to the map if it isn't in it already
+						errs() << "Adding child to map: " << calleename << '\n';
+						// GraphNode cgno = GraphNode(calleename);
+						cgno = new GraphNode(calleename);
+						// cgn = &cgno;
+						cgn = cgno;
+						// funcs[calleename] = cgn;
+						funcs.insert(pair<string, GraphNode*>(calleename, cgn));
+					} else {
+						// Retrieve the child from the map
+						errs() << "Get child from map: " << calleename << '\n';
+						// cgn = funcs[calleename];
+						cgn = funcs.at(calleename);
+						cgn->print();  // THIS PRINTS THE OUTER ONE. WHY
+						errs() << "~~~~~~~~~~~~~~~" << '\n';
+					}	
+					
+					gn->print();
+					
+					// Add this child to my children
+					// gn->children.insert(cgn);	
+					gn->addChild(cgn);  // Adding the children is acting funny.
+					
+					gn->print();				
+					
+					// Add me to my child's callers
+					// cgn->callers.insert(gn);					
+				}
+				
+
+			} else {
+				// could be non-null and still have no children. Can check this above
+				errs() << "node has no children" << '\n';
+			}
+
+		} else {
+			// Don't deal with null nodes for now
+		}
+		
+		errs() << '\n';
+	}
+
+	// Add every function to the map:
+	// Create a GNode for it, with its children
+	// For each child, add IT to the map
+	// If it exists, 
+	
+	for(auto f: funcs){
+		errs() << "Func: " << f.first << '\n';
+		for(auto c: f.second->children){
+			errs() << "  - child: " << c->name << '\n';
+		}
+		
+	}
+	
+}
 
 
 

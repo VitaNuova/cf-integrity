@@ -73,12 +73,15 @@ struct WhiteListPass: public ModulePass {
 		const CallGraph& graph2 = (*pass2).getCallGraph();
 		// ~~~~~~~~~~~~~~~~~
 		
-		// Graph g = Graph("main");
-		std::unordered_set<string> seen;
 		Graph g;
-		// g.fromLLVMCallGraph("main", graph2, seen);
 		g.fromLLVMCallGraph("main", graph2);
-		g.print();
+		
+		std::map<string, Graph::GraphNode*>* funcs = g.getFunctionNodeMap();
+		for(auto n: *funcs){
+			n.second->print();
+		}
+		g.calculateHashes();
+		g.print();  // Tree is missing pointers for readKey...
 		
 		
 		
@@ -94,12 +97,11 @@ struct WhiteListPass: public ModulePass {
 				// Pair: ( current function , graph of nodes I call )
 				string fname;
 				if(node.first != nullptr) {
-					fname = (*(node.first)).getName();
-					// errs() << '\n'<< "Function name: " << (*(node.first)).getName() << '\n';
-					errs() << '\n'<< "Function name: " << fname << '\n';
+					fname = (*(node.first)).getName();					
+					// - errs() << '\n'<< "Function name: " << fname << '\n';
 				} else {
 					fname = "null";
-					errs() << "Function is null" << '\n';
+					// - errs() << "Function is null" << '\n';
 				}
 				
 				
@@ -113,17 +115,17 @@ struct WhiteListPass: public ModulePass {
 					for (auto callee: (*(node.second))){
 						Function* callee_func = callee.second->getFunction();
 						calledfname = callee_func->getName();
-						errs() << "callee: " << calledfname << '\n';
+						// - errs() << "callee: " << calledfname << '\n';
 					}
 					
-					Function* f = (*(node.second)).getFunction();
+					// - Function* f = (*(node.second)).getFunction();
 					
-					if(f != nullptr) {
-						calledfname = (*(f)).getName();
-						errs() << fname << " calls " << calledfname << '\n';
+					// - if(f != nullptr) {
+						// - calledfname = (*(f)).getName();
+						//  - errs() << fname << " calls " << calledfname << '\n';
 						// errs() << "Function name (from call graph node):" << (*f).getName() << '\n';
 						// errs() << "Function size: " << (*f).size() << '\n'; //segfault	
-					}
+					// - }
 				}
 
 			}

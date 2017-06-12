@@ -37,6 +37,7 @@ public:
 	void calculateHashes();
 	void fromLLVMCallGraph(string root_name, const CallGraph& graph);
 	std::map<string, GraphNode*>* getFunctionNodeMap();
+	std::unordered_set<unsigned> getValidHashes(string name);
 
 };
 
@@ -206,6 +207,45 @@ void Graph::calculateHashes(){
 			}			
 		}		
 	}
+}
+
+// Should make the BFS its own function/iterator
+std::unordered_set<unsigned> Graph::getValidHashes(string name){
+	
+	// List of seen nodes
+	std::unordered_set<string> seen;
+	
+	// Queue to store nodes to explore
+	std::queue<GraphNode*> q;
+	
+	// Start at root
+	unsigned roothash = 0;
+	for(char fchar: root->name){
+		roothash += fchar;
+	}
+	root->hashes.insert(roothash);
+	q.push(root);
+	
+	// Go!
+	while(!q.empty()){
+		GraphNode* current = q.front();
+		q.pop();
+		
+		if(current->name == name){
+			return current->hashes;
+		}
+		
+		seen.insert(current->name);
+		// What order should adding to 'seen' and adding children be?
+		
+		for(GraphNode* child:current->children){
+			if(seen.count(child->name) == 0){
+				q.push(child);
+			}			
+		}		
+	}
+	std::unordered_set<unsigned> empty;
+	return empty;
 }
 
 std::map<string, Graph::GraphNode*>* Graph::getFunctionNodeMap(){

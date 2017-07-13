@@ -65,12 +65,14 @@ void Graph::fromLLVMCallGraph(string root_name, const CallGraph& graph){
 	
 	// Loop over the LLVM graph
 	for(const pair<const Function* const, unique_ptr<CallGraphNode>>& node: graph) {
-		if(node.first != nullptr) {
+		if(node.first != nullptr && (*(node.first)).getBasicBlockList().size() != 0) {
 			fname = (*(node.first)).getName();
 			
 			errs() << "Function name: " << fname << '\n';
+			errs() << "And its tree: \n";
+                        (*(node.second)).dump();
 			
-			GraphNode* parentNode;
+                        GraphNode* parentNode;
 			// If I don't exist in the map, add me			
 			if(funcNodes->count(fname) == 0){
 				parentNode = new GraphNode(fname);
@@ -82,28 +84,30 @@ void Graph::fromLLVMCallGraph(string root_name, const CallGraph& graph){
 			// Build the list of children for this node, if it has any	
 			std::unordered_set<GraphNode*> childNodes;			
 			if(node.second != nullptr) {
+                                node.second->dump();
 				string calleename;
 
 				// Iterate over each function that this node calls				
 				for (auto callee: (*(node.second))){
 					Function* callee_func = callee.second->getFunction();
-					calleename = callee_func->getName();				
+					if((*callee_func).getBasicBlockList().size() != 0) {
+					   calleename = callee_func->getName();				
 					
 					// errs() << "Callee name: " << calleename << '\n';
 					
-					GraphNode* childNode;
+					   GraphNode* childNode;
 					
-					if(funcNodes->count(calleename) == 0){
+					   if(funcNodes->count(calleename) == 0){
 						// Add my child to the map if it isn't in it already
 						childNode = new GraphNode(calleename);
-					} else {
+                                                funcNodes->insert(pair<string, GraphNode*>(calleename, childNode));
+					   } else {
 						// Retrieve the child from the map
 						childNode = funcNodes->at(calleename);
-					}	
-					
-					childNode->addParent(parentNode);
-					
-					childNodes.insert(childNode);
+					   }	
+					   childNode->addParent(parentNode);
+					   childNodes.insert(childNode);
+					}
 					// 				
 				}
 			} // Otherwise null .second, so no children
@@ -182,30 +186,41 @@ void Graph::calculateHashes(){
 	
 	// Go!
 	while(!q.empty()){
+
 		GraphNode* current = q.front();
 		q.pop();
-		
+                bool all_parents_seen = true; 		
 		// For each of my parents,
 		// For each of hash of the parent,
 		// Add a hash to my hash list, hash = pHash + meHash;
 		for(auto parent:current->parents){
+                        if(seen.count(parent->name) == 0) {
+                           all_parents_seen = false;
+			   break;
+                        }
 			for(auto hash: parent->hashes){
 				unsigned newhash = hash;
 				for(char fchar: current->name){
 					newhash += fchar;
 				}
 				current->hashes.insert(newhash);
+                                current->print();
 			}
-		}		
-		
-		seen.insert(current->name);
+		}
+		if(all_parents_seen) {
+               // additional check to prevent the situation where the hashes for a child are calculated earlier than for some of the parents
+                //if(current->hashes.size() >= current->parents.size()) {
+		   seen.insert(current->name);
+		   
+               // }
 		// What order should adding to 'seen' and adding children be?
 		
-		for(GraphNode* child:current->children){
+		   for(GraphNode* child:current->children){
 			if(seen.count(child->name) == 0){
 				q.push(child);
 			}			
-		}		
+		   }
+                }		
 	}
 }
 
